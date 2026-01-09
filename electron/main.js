@@ -13,12 +13,62 @@ function createWindow() {
         height: 800,
         minWidth: 800,
         minHeight: 600,
+        frame: false, // 프레임 제거
+        autoHideMenuBar: true, // 메뉴 바 숨김
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.js')
         },
         icon: path.join(__dirname, '../assets/icon.png')
+    });
+
+    // 메뉴 바 설정 (단축키 활성화를 위해 null 대신 최소 메뉴 설정)
+    const template = [
+        {
+            label: 'Edit',
+            submenu: [
+                { role: 'undo' }, { role: 'redo' }, { type: 'separator' },
+                { role: 'cut' }, { role: 'copy' }, { role: 'paste' }
+            ]
+        },
+        {
+            label: 'View',
+            submenu: [
+                { role: 'reload' },
+                { role: 'forceReload' },
+                { role: 'toggleDevTools' },
+                { type: 'separator' },
+                { role: 'resetZoom' },
+                { role: 'zoomIn' },
+                { role: 'zoomOut' },
+                { type: 'separator' },
+                { role: 'togglefullscreen' }
+            ]
+        }
+    ];
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
+
+    // ... (existing dev server loading logic)
+
+    // IPC 핸들러: 창 제어
+    ipcMain.on('window-minimize', () => {
+        if (mainWindow) mainWindow.minimize();
+    });
+
+    ipcMain.on('window-maximize', () => {
+        if (mainWindow) {
+            if (mainWindow.isMaximized()) {
+                mainWindow.unmaximize();
+            } else {
+                mainWindow.maximize();
+            }
+        }
+    });
+
+    ipcMain.on('window-close', () => {
+        if (mainWindow) mainWindow.close();
     });
 
     // 개발 모드: webpack dev server 로드

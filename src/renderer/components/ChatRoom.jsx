@@ -55,9 +55,10 @@ function ChatRoom({ room, onClose }) {
     const handleNewMessage = (message) => {
         console.log('[ChatRoom] WebSocket 수신 원본:', message);
 
-        // 타이핑 인디케이터 처리
-        if (message.type === 'TYPING') {
-            handleTypingIndicator(message.data);
+        // 타이핑 인디케이터 처리 (메시지 타입이 TYPING이거나 데이터에 isTyping 필드가 있는 경우)
+        if (message.type === 'TYPING' || (message.data && message.data.isTyping !== undefined) || message.isTyping !== undefined) {
+            const typingData = message.type === 'TYPING' ? message.data : (message.data || message);
+            handleTypingIndicator(typingData);
             return;
         }
 
@@ -91,17 +92,24 @@ function ChatRoom({ room, onClose }) {
     };
 
     const handleTypingIndicator = (data) => {
-        if (data.userId === user.id) return;
+        // data.userId와 user.id 모두 문자열로 변환하여 비교 (타입 불일치 방지)
+        const typingUserId = String(data.userId);
+        const currentUserId = String(user.id);
+
+        console.log(`[ChatRoom] 타이핑 이벤트 처리 - 대상: ${typingUserId}, 상태: ${data.isTyping}`);
+
+        if (typingUserId === currentUserId) return;
 
         if (data.isTyping) {
             setTypingUsers(prev => {
-                if (!prev.includes(data.userId)) {
-                    return [...prev, data.userId];
+                const prevStrings = prev.map(id => String(id));
+                if (!prevStrings.includes(typingUserId)) {
+                    return [...prevStrings, typingUserId];
                 }
-                return prev;
+                return prevStrings;
             });
         } else {
-            setTypingUsers(prev => prev.filter(id => id !== data.userId));
+            setTypingUsers(prev => prev.map(id => String(id)).filter(id => id !== typingUserId));
         }
     };
 
@@ -155,6 +163,7 @@ function ChatRoom({ room, onClose }) {
         <div className="chat-room-container">
             <div className="chat-room-header">
                 <div className="chat-room-info">
+                    <span className="room-icon-discord">#</span>
                     <h2>{room.title || '대화방'}</h2>
                     <span className="room-type-badge">
                         {room.type === 'GROUP' ? '그룹' : 'DM'}

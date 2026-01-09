@@ -5,6 +5,8 @@ import Messenger from './pages/Messenger';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { WebSocketProvider } from './context/WebSocketContext';
 
+import TitleBar from './components/TitleBar';
+
 function PrivateRoute({ children }) {
     const { user } = useAuth();
     return user ? children : <Navigate to="/login" />;
@@ -14,19 +16,24 @@ function App() {
     return (
         <AuthProvider>
             <WebSocketProvider>
-                <Router>
-                    <Routes>
-                        <Route path="/login" element={<Login />} />
-                        <Route
-                            path="/"
-                            element={
-                                <PrivateRoute>
-                                    <Messenger />
-                                </PrivateRoute>
-                            }
-                        />
-                    </Routes>
-                </Router>
+                <div className="app-main-wrapper" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+                    <TitleBar />
+                    <Router>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                            <Routes>
+                                <Route path="/login" element={<Login />} />
+                                <Route
+                                    path="/"
+                                    element={
+                                        <PrivateRoute>
+                                            <Messenger />
+                                        </PrivateRoute>
+                                    }
+                                />
+                            </Routes>
+                        </div>
+                    </Router>
+                </div>
             </WebSocketProvider>
         </AuthProvider>
     );

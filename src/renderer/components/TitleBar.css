@@ -1,0 +1,78 @@
+.title-bar {
+    height: 32px;
+    background: var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 0 12px;
+    -webkit-app-region: drag;
+    /* 드래그 가능 영역 */
+    user-select: none;
+    z-index: 1000;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .title-bar {
+    background: #1e1f22;
+    border-bottom: none;
+}
+
+.title-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+}
+
+.title-bar-icon {
+    width: 16px;
+    height: 16px;
+    opacity: 0.8;
+}
+
+.title-bar-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+}
+
+.title-bar-controls {
+    display: flex;
+    height: 100%;
+    -webkit-app-region: no-drag;
+    /* 버튼은 드래그 제외 */
+}
+
+.control-btn {
+    width: 46px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.1s;
+    font-size: 14px;
+}
+
+.control-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .control-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+}
+
+.control-btn.close:hover {
+    background: #e81123 !important;
+    color: white !important;
+}
+
+.control-btn svg {
+    width: 10px;
+    height: 10px;
+}

@@ -81,17 +81,6 @@ function RoomList({ selectedRoom, onSelectRoom, onAddNewChat }) {
 
     return (
         <div className="room-list-container">
-            <div className="room-list-header">
-                <h2>대화</h2>
-                <button
-                    className="new-chat-button"
-                    title="새 대화"
-                    onClick={onAddNewChat}
-                >
-                    ➕
-                </button>
-            </div>
-
             <div className="search-box">
                 <input
                     type="text"

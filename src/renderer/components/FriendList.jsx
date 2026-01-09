@@ -45,11 +45,6 @@ function FriendList({ onSelectFriend, onStartChat }) {
 
     return (
         <div className="friend-list-container">
-            <div className="friend-list-header">
-                <h2>친구</h2>
-                <span className="friend-count">{friends.length}명</span>
-            </div>
-
             <div className="search-box">
                 <input
                     type="text"

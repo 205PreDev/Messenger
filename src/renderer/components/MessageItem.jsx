@@ -11,28 +11,25 @@ function MessageItem({ message, isOwn, showAvatar }) {
     };
 
     return (
-        <div className={`message-item ${isOwn ? 'own' : 'other'}`}>
-            {!isOwn && showAvatar && (
-                <div className="message-avatar">
-                    {message.senderName?.charAt(0) || '?'}
-                </div>
-            )}
+        <div className={`message-item ${showAvatar ? 'has-avatar' : 'no-avatar'}`}>
+            <div className="message-avatar">
+                {showAvatar && (message.senderName?.charAt(0) || 'U')}
+            </div>
 
             <div className="message-content-wrapper">
-                {!isOwn && showAvatar && (
-                    <div className="message-sender-name">
-                        {message.senderName || '알 수 없음'}
+                {showAvatar && (
+                    <div className="message-header-info">
+                        <span className="message-sender-name">
+                            {message.senderName || '알 수 없음'}
+                        </span>
+                        <span className="message-time">
+                            {formatTime(message.createdAt)}
+                        </span>
                     </div>
                 )}
 
-                <div className="message-bubble-row">
-                    <div className="message-bubble">
-                        <p className="message-text">{message.content}</p>
-                    </div>
-
-                    <span className="message-time">
-                        {formatTime(message.createdAt)}
-                    </span>
+                <div className="message-text">
+                    {message.content}
                 </div>
             </div>
         </div>
@@ -40,3 +37,4 @@ function MessageItem({ message, isOwn, showAvatar }) {
 }
 
 export default MessageItem;
+
