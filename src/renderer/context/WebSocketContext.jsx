@@ -59,9 +59,28 @@ export function WebSocketProvider({ children }) {
             heartbeatIncoming: 4000,
             heartbeatOutgoing: 4000,
             onConnect: () => {
-                console.log('WebSocket Connected');
+                console.log('✅ WebSocket Connected');
+                console.log('📊 User info:', { userId: user?.id, username: user?.username });
                 setConnected(true);
                 setReconnecting(false);
+
+                // 온라인 상태 알림 (3D 앱과 동일한 방식)
+                if (user?.id && user?.username) {
+                    const joinMessage = {
+                        userId: user.id,
+                        username: user.username
+                    };
+                    console.log('📤 Sending player.join message:', joinMessage);
+
+                    clientRef.current.publish({
+                        destination: '/app/player.join',
+                        body: JSON.stringify(joinMessage)
+                    });
+
+                    console.log('✅ Online status sent to backend');
+                } else {
+                    console.warn('⚠️ Cannot send online status - missing user info:', { userId: user?.id, username: user?.username });
+                }
 
                 // 개인 알림 구독
                 if (user?.id) {

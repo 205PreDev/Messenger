@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { chatAPI } from '../services/api';
+import { chatAPI, getProfileUrl } from '../services/api';
 import { useWebSocket } from '../context/WebSocketContext';
 import './RoomList.css';
 
@@ -111,7 +111,11 @@ function RoomList({ selectedRoom, onSelectRoom, onAddNewChat }) {
                             onClick={() => onSelectRoom(room)}
                         >
                             <div className="room-avatar">
-                                {room.type === 'GROUP' ? '👥' : '👤'}
+                                <img
+                                    src={getProfileUrl(room.profileImagePath || room.selectedProfile?.imagePath || room.selectedProfile)}
+                                    alt=""
+                                    className="avatar-img"
+                                />
                             </div>
 
                             <div className="room-info">

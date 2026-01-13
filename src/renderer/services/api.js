@@ -1,6 +1,15 @@
 import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:8080/api';
+const SERVER_URL = 'http://localhost:8080';
+
+// 기본 이미지 상수
+const DEFAULT_PROFILE = '/resources/Profile/base-profile3.png';
+
+export const getProfileUrl = (path) => {
+    const relativePath = path || DEFAULT_PROFILE;
+    return `${SERVER_URL}${relativePath}`;
+};
 
 // Axios 인스턴스 생성
 const apiClient = axios.create({
@@ -19,7 +28,9 @@ apiClient.interceptors.request.use(
             headers: config.headers
         });
         const token = localStorage.getItem('authToken');
-        if (token) {
+        // 로그인/회원가입 요청 시에는 토큰을 보내지 않음 (만료된 토큰으로 인한 서버 에러 방지)
+        const isAuthRequest = config.url.includes('/auth/login') || config.url.includes('/auth/register');
+        if (token && !isAuthRequest) {
             config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
@@ -43,11 +54,19 @@ apiClient.interceptors.response.use(
             data: error.response?.data,
             message: error.message
         });
-        if (error.response?.status === 401) {
-            // 인증 실패 시 로그아웃
+        const status = error.response?.status;
+        const errorData = error.response?.data;
+
+        // 401 Unauthorized 또는 500 내부에 JWT 만료 메시지가 있는 경우 처리
+        if (status === 401 || (status === 500 && errorData?.message?.includes('JWT expired'))) {
+            console.warn('[Session Expired] Logging out...');
             localStorage.removeItem('authToken');
             localStorage.removeItem('user');
-            window.location.href = '/login';
+
+            // 로그인 페이지가 아닌 경우에만 리다이렉트
+            if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }

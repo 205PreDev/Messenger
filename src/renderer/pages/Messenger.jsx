@@ -4,6 +4,7 @@ import FriendList from '../components/FriendList';
 import ChatRoom from '../components/ChatRoom';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocket } from '../context/WebSocketContext';
+import { getProfileUrl } from '../services/api';
 import './Messenger.css';
 
 function Messenger() {
@@ -90,7 +91,11 @@ function Messenger() {
                 <footer className="user-panel">
                     <div className="user-info">
                         <div className="user-avatar-small">
-                            {user?.username?.charAt(0) || 'U'}
+                            <img
+                                src={getProfileUrl(user?.selectedProfile?.imagePath || user?.selectedProfile)}
+                                alt=""
+                                className="avatar-img"
+                            />
                         </div>
                         <div className="user-text">
                             <span className="user-name-label">{user?.username}</span>

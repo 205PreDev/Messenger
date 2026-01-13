@@ -13,7 +13,11 @@ function MessageItem({ message, isOwn, showAvatar }) {
     return (
         <div className={`message-item ${showAvatar ? 'has-avatar' : 'no-avatar'}`}>
             <div className="message-avatar">
-                {showAvatar && (message.senderName?.charAt(0) || 'U')}
+                {showAvatar && (
+                    <>
+                        <img src={message.profileImageUrl} alt="" className="avatar-img" />
+                    </>
+                )}
             </div>
 
             <div className="message-content-wrapper">

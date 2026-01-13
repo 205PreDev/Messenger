@@ -7,6 +7,7 @@
     "start": "webpack serve --mode development",
     "build": "webpack --mode production",
     "electron:dev": "concurrently \"npm start\" \"wait-on http://localhost:3001 && electron .\"",
+    "electron:dev:second": "electron . --user-data-dir=\"./.test-runtime\"",
     "electron:build": "npm run build && electron-builder",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

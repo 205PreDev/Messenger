@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { chatAPI } from '../services/api';
+import { chatAPI, getProfileUrl } from '../services/api';
 import { useWebSocket } from '../context/WebSocketContext';
 import { useAuth } from '../context/AuthContext';
 import MessageItem from './MessageItem';
@@ -12,12 +12,13 @@ function ChatRoom({ room, onClose }) {
     const [sending, setSending] = useState(false);
     const [typingUsers, setTypingUsers] = useState([]);
     const messagesEndRef = useRef(null);
-    const typingTimeoutRef = useRef(null);
+    const isTypingSentRef = useRef(false);
     const { subscribeToRoom, unsubscribeFromRoom, sendTypingIndicator, connected } = useWebSocket();
     const { user } = useAuth();
 
     useEffect(() => {
         loadMessages();
+        isTypingSentRef.current = false; // 방 변경 시 타이핑 상태 초기화
 
         // WebSocket 연결 상태가 true일 때만 구독 시도
         if (connected) {
@@ -31,7 +32,7 @@ function ChatRoom({ room, onClose }) {
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages]);
+    }, [messages, typingUsers]);
 
     const loadMessages = async () => {
         try {
@@ -67,13 +68,17 @@ function ChatRoom({ room, onClose }) {
             const rawData = message.type === 'MESSAGE' ? message.data : message;
 
             // 데이터 필드 보정 (서버마다 content/message, senderName/username 등 다를 수 있음)
+            // 프로필 경로 추출 및 절대 URL 변환
+            const profilePath = rawData.selectedProfile?.imagePath || rawData.selectedProfile || rawData.profileImage;
+
             const normalizedMessage = {
                 ...rawData,
                 id: rawData.id,
                 content: rawData.content || rawData.message,
                 senderName: rawData.senderName || rawData.username,
                 createdAt: rawData.createdAt || rawData.timestamp,
-                senderId: rawData.senderId ? rawData.senderId.toString() : (rawData.userId ? rawData.userId.toString() : null)
+                senderId: rawData.senderId ? rawData.senderId.toString() : (rawData.userId ? rawData.userId.toString() : null),
+                profileImageUrl: getProfileUrl(profilePath)
             };
 
             if (normalizedMessage.id || normalizedMessage.content) {
@@ -118,18 +123,18 @@ function ChatRoom({ room, onClose }) {
     };
 
     const handleInputChange = (e) => {
-        setInputValue(e.target.value);
+        const newValue = e.target.value;
+        setInputValue(newValue);
 
-        // 타이핑 인디케이터 전송
-        sendTypingIndicator(room.id, true);
-
-        // 3초 후 타이핑 중지
-        if (typingTimeoutRef.current) {
-            clearTimeout(typingTimeoutRef.current);
-        }
-        typingTimeoutRef.current = setTimeout(() => {
+        // [Optimized] 상태가 변할 때만 신호 전송 (네트워크 자원 절약)
+        const hasText = newValue.length > 0;
+        if (hasText && !isTypingSentRef.current) {
+            sendTypingIndicator(room.id, true);
+            isTypingSentRef.current = true;
+        } else if (!hasText && isTypingSentRef.current) {
             sendTypingIndicator(room.id, false);
-        }, 3000);
+            isTypingSentRef.current = false;
+        }
     };
 
     const handleSendMessage = async (e) => {
@@ -144,7 +149,12 @@ function ChatRoom({ room, onClose }) {
 
         setSending(true);
         setInputValue('');
-        sendTypingIndicator(room.id, false);
+
+        // 메시지 전송 시 타이핑 상태 즉시 해제
+        if (isTypingSentRef.current) {
+            sendTypingIndicator(room.id, false);
+            isTypingSentRef.current = false;
+        }
 
         try {
             const response = await chatAPI.sendMessage(room.id, content);
@@ -202,18 +212,22 @@ function ChatRoom({ room, onClose }) {
                         <div ref={messagesEndRef} />
                     </>
                 )}
+            </div>
 
-                {typingUsers.length > 0 && (
+            {typingUsers.length > 0 && (
+                <div className="typing-indicator-wrapper">
                     <div className="typing-indicator">
                         <span className="typing-dots">
                             <span></span>
                             <span></span>
                             <span></span>
                         </span>
-                        <span className="typing-text">입력 중...</span>
+                        <span className="typing-text">
+                            {typingUsers.length === 1 ? '누군가 입력 중...' : `${typingUsers.length}명이 입력 중...`}
+                        </span>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
 
             <form className="message-input-form" onSubmit={handleSendMessage}>
                 <input

@@ -113,11 +113,13 @@
 
 .message-input-form button {
     padding: 0 20px;
+    min-width: 80px;
     background: var(--accent-primary);
     color: white;
     border: none;
     border-radius: var(--radius-md);
     font-weight: 600;
+    white-space: nowrap;
     font-size: 14px;
     cursor: pointer;
 }
@@ -127,14 +129,20 @@
 }
 
 
+.typing-indicator-wrapper {
+    flex-shrink: 0;
+    padding: 0 16px 8px;
+    background: var(--bg-primary);
+    z-index: 5;
+}
+
 .typing-indicator {
-    padding: 8px 16px;
+    padding: 4px 0;
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-secondary);
-    animation: fadeIn 0.3s ease-out;
 }
 
 .typing-dots {

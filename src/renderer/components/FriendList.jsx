@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { userAPI, chatAPI } from '../services/api';
+import { userAPI, chatAPI, getProfileUrl } from '../services/api';
 import './FriendList.css';
 
 function FriendList({ onSelectFriend, onStartChat }) {
@@ -73,10 +73,24 @@ function FriendList({ onSelectFriend, onStartChat }) {
                             style={{ cursor: creatingChat ? 'wait' : 'pointer', opacity: creatingChat ? 0.7 : 1 }}
                         >
                             <div className="friend-avatar">
-                                👤
+                                <img
+                                    src={getProfileUrl(friend.profileImagePath || friend.selectedProfile?.imagePath || friend.selectedProfile)}
+                                    alt=""
+                                    className="avatar-img"
+                                />
+                                {friend.online !== undefined && (
+                                    <span className={`status-indicator ${friend.online ? 'online' : 'offline'}`}></span>
+                                )}
                             </div>
                             <div className="friend-info">
-                                <h3 className="friend-name">{friend.username}</h3>
+                                <div className="friend-header">
+                                    <h3 className="friend-name">{friend.username}</h3>
+                                    {friend.online !== undefined && (
+                                        <span className={`status-text ${friend.online ? 'online' : 'offline'}`}>
+                                            {friend.online ? '온라인' : '오프라인'}
+                                        </span>
+                                    )}
+                                </div>
                                 <p className="friend-status-msg text-ellipsis">
                                     {friend.statusMessage || '상태 메시지가 없습니다'}
                                 </p>
