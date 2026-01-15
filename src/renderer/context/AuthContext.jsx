@@ -12,6 +12,8 @@ export function AuthProvider({ children }) {
         const savedToken = localStorage.getItem('authToken');
         const savedUser = localStorage.getItem('user');
 
+        console.log('[Auth] Init check - Token exists:', !!savedToken);
+
         if (savedToken && savedUser) {
             setToken(savedToken);
             setUser(JSON.parse(savedUser));
@@ -20,6 +22,7 @@ export function AuthProvider({ children }) {
     }, []);
 
     const login = useCallback((userData, authToken) => {
+        console.log('[Auth] Login:', userData.username);
         setUser(userData);
         setToken(authToken);
         localStorage.setItem('authToken', authToken);
@@ -27,10 +30,12 @@ export function AuthProvider({ children }) {
     }, []);
 
     const logout = useCallback(() => {
+        console.log('[Auth] Logout executing...');
         setUser(null);
         setToken(null);
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
+        console.log('[Auth] LocalStorage cleared.');
     }, []);
 
     const value = useMemo(() => ({

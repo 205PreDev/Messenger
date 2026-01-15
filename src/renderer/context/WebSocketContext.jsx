@@ -13,7 +13,10 @@ export function WebSocketProvider({ children }) {
     const [lastNotification, setLastNotification] = useState(null); // [NEW]
     const subscriptionsRef = useRef(new Map());
 
-    // subscribeToUser 함수 정의
+    const isIntentionalDisconnectRef = useRef(false);
+    const retryCountRef = useRef(0);
+    const retryTimeoutRef = useRef(null);
+
     const subscribeToUser = useCallback((userId) => {
         if (!clientRef.current?.connected) return;
 
@@ -43,9 +46,18 @@ export function WebSocketProvider({ children }) {
     }, []);
 
     const connect = useCallback(() => {
+        // 이미 활성화된 클라이언트가 있다면 재사용 (단, 연결 끊긴 상태라면 재활성화 시도)
         if (clientRef.current?.active) {
-            return; // 이미 연결됨
+            return;
         }
+
+        // 재연결 타이머가 있다면 취소 (중복 실행 방지)
+        if (retryTimeoutRef.current) {
+            clearTimeout(retryTimeoutRef.current);
+            retryTimeoutRef.current = null;
+        }
+
+        isIntentionalDisconnectRef.current = false;
 
         const client = new Client({
             webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
@@ -53,9 +65,9 @@ export function WebSocketProvider({ children }) {
                 Authorization: `Bearer ${token}`
             },
             debug: (str) => {
-                console.log('[WebSocket]', str);
+                // console.log('[WebSocket]', str); // 너무 많은 로그 방지
             },
-            reconnectDelay: 5000,
+            reconnectDelay: 0, // [Fast Retry] 자동 재연결 끄기 (수동 제어)
             heartbeatIncoming: 4000,
             heartbeatOutgoing: 4000,
             onConnect: () => {
@@ -63,70 +75,113 @@ export function WebSocketProvider({ children }) {
                 console.log('📊 User info:', { userId: user?.id, username: user?.username });
                 setConnected(true);
                 setReconnecting(false);
+                retryCountRef.current = 0; // [Fast Retry] 연결 성공 시 카운트 초기화
 
-                // 온라인 상태 알림 (3D 앱과 동일한 방식)
+                // 온라인 상태 알림
                 if (user?.id && user?.username) {
-                    const joinMessage = {
-                        userId: user.id,
-                        username: user.username
-                    };
-                    console.log('📤 Sending player.join message:', joinMessage);
-
+                    const joinMessage = { userId: user.id, username: user.username };
                     clientRef.current.publish({
                         destination: '/app/player.join',
                         body: JSON.stringify(joinMessage)
                     });
-
                     console.log('✅ Online status sent to backend');
-                } else {
-                    console.warn('⚠️ Cannot send online status - missing user info:', { userId: user?.id, username: user?.username });
                 }
 
                 // 개인 알림 구독
-                if (user?.id) {
-                    subscribeToUser(user.id);
+                if (user?.id) subscribeToUser(user.id);
+            },
+            onWebSocketClose: () => {
+                console.log('⚠️ WebSocket Closed');
+                setConnected(false);
+
+                // [Fast Retry] 의도치 않은 종료 시 빠른 재접속 시도
+                if (!isIntentionalDisconnectRef.current) {
+                    const count = retryCountRef.current;
+                    let delay = 5000;
+
+                    // Fast Retry 전략: 0.5초 -> 1초 -> 이후 5초
+                    if (count === 0) delay = 500;
+                    else if (count === 1) delay = 1000;
+
+                    console.log(`🔄 Reconnecting in ${delay}ms (Attempt ${count + 1})...`);
+                    setReconnecting(true);
+
+                    retryTimeoutRef.current = setTimeout(() => {
+                        retryCountRef.current += 1;
+                        connect(); // 재귀 호출이 아니라 useCallback 의존성에 따른 새 호출
+                    }, delay);
                 }
             },
-            onDisconnect: () => {
-                console.log('WebSocket Disconnected');
-                setConnected(false);
-            },
             onStompError: (frame) => {
-                console.error('WebSocket Error:', frame);
-                setReconnecting(true);
+                console.error('WebSocket Error (STOMP):', frame);
+                // STOMP 에러(예: 중복 로그인) 시에도 소켓이 닫히므로 onWebSocketClose에서 처리됨
             }
         });
 
         client.activate();
         clientRef.current = client;
-    }, [token, user?.id, subscribeToUser]);
+    }, [token, user?.id, subscribeToUser]); // connect 자체는 의존성 변경 시 새로 생성됨
 
     const disconnect = useCallback(() => {
+        isIntentionalDisconnectRef.current = true; // [Fast Retry] 재접속 방지
+
+        if (retryTimeoutRef.current) {
+            clearTimeout(retryTimeoutRef.current);
+            retryTimeoutRef.current = null;
+        }
+
         if (clientRef.current) {
-            // 모든 구독 해제
-            subscriptionsRef.current.forEach((subscription) => {
+            // [Session Cleanup] 명시적 퇴장 메시지 (가능한 경우)
+            if (clientRef.current.connected && user?.id) {
                 try {
-                    subscription.unsubscribe();
-                } catch (e) {
-                    console.warn('Failed to unsubscribe:', e);
-                }
-            });
+                    clientRef.current.publish({
+                        destination: '/app/player.leave',
+                        body: JSON.stringify({ userId: user.id, username: user.username })
+                    });
+                } catch (err) { console.warn(err); }
+            }
+
+            // 구독 해제
+            subscriptionsRef.current.forEach(sub => sub.unsubscribe());
             subscriptionsRef.current.clear();
 
             clientRef.current.deactivate();
             clientRef.current = null;
             setConnected(false);
         }
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         if (user && token) {
-            connect();
+            // [Smart Reconnect] 새로고침 감지
+            const navEntry = performance.getEntriesByType("navigation")[0];
+            const isReload = navEntry && navEntry.type === 'reload';
+
+            console.log(`[WebSocketContext] Connection attempt. user=${!!user}, token=${!!token}, isReload=${isReload}`);
+
+            if (isReload) {
+                console.log('🔄 [Smart Reconnect] 새로고침 감지됨 (0.5s 지연 대기)');
+                const timer = setTimeout(() => {
+                    console.log('⏰ [Smart Reconnect] 지연 시간 종료, 접속 시도...');
+                    connect();
+                }, 500);
+                return () => clearTimeout(timer);
+            } else {
+                console.log('🚀 [Smart Reconnect] 즉시 접속 시도');
+                connect();
+            }
         } else {
             disconnect();
         }
 
+        // [Session Cleanup] 새로고침/종료 시 명시적 연결 해제
+        const handleBeforeUnload = () => {
+            disconnect();
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
         return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
             disconnect();
         };
     }, [user, token, connect, disconnect]);

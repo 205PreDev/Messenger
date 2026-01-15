@@ -8,7 +8,12 @@ import { WebSocketProvider } from './context/WebSocketContext';
 import TitleBar from './components/TitleBar';
 
 function PrivateRoute({ children }) {
-    const { user } = useAuth();
+    const { user, loading } = useAuth();
+
+    if (loading) {
+        return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>Loading...</div>; // 초기 복구 중 대기
+    }
+
     return user ? children : <Navigate to="/login" />;
 }
 

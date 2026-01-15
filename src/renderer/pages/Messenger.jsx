@@ -58,8 +58,16 @@ function Messenger() {
 
     // [최적화] WebSocket 알림에 따른 데이터 갱신 (Centralized Update)
     useEffect(() => {
-        if (lastNotification?.type === 'NEW_MESSAGE' || lastNotification?.type === 'READ_UPDATE') {
+        if (!lastNotification) return;
+
+        console.log('[Messenger] Notification received:', lastNotification.type);
+
+        if (lastNotification.type === 'NEW_MESSAGE' || lastNotification.type === 'READ_UPDATE') {
             refreshRooms();
+        }
+        // 친구 상태 업데이트 처리 (다양한 타입 명칭 대응)
+        else if (['FRIEND_STATUS', 'FRIEND_ONLINE', 'FRIEND_OFFLINE', 'USER_STATUS', 'FRIEND_UPDATE'].includes(lastNotification.type)) {
+            refreshFriends();
         }
     }, [lastNotification]);
 

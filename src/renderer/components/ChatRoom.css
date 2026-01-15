@@ -136,13 +136,18 @@
     z-index: 5;
 }
 
-.typing-indicator {
-    padding: 4px 0;
+.typing-indicator-container {
+    padding: 8px 16px;
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 11px;
+    font-size: 12px;
+    /* 폰트 사이즈 키움 */
     color: var(--text-secondary);
+    min-height: 24px;
+    /* 높이 확보 */
+    margin-bottom: 4px;
+    /* 입력창과의 간격 */
 }
 
 .typing-dots {
