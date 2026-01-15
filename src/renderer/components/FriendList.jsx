@@ -1,27 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { userAPI, chatAPI, getProfileUrl } from '../services/api';
+import { chatAPI, getProfileUrl } from '../services/api';
+// userAPI 제거 (상위 컴포넌트에서 관리)
 import './FriendList.css';
 
-function FriendList({ onSelectFriend, onStartChat }) {
-    const [friends, setFriends] = useState([]);
-    const [loading, setLoading] = useState(true);
+// [최적화] Props로 데이터 수신 (Stateless Component)
+function FriendList({ onSelectFriend, onStartChat, friends, loading }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [creatingChat, setCreatingChat] = useState(false);
 
-    useEffect(() => {
-        loadFriends();
-    }, []);
-
-    const loadFriends = async () => {
-        try {
-            const response = await userAPI.getFriends();
-            setFriends(response.data);
-        } catch (error) {
-            console.error('Failed to load friends:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // 내부 loadFriends 로직 제거됨 (상위 컴포넌트로 위임)
 
     const filteredFriends = friends.filter(friend =>
         friend.username?.toLowerCase().includes(searchQuery.toLowerCase())

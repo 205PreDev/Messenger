@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import MessageItem from './MessageItem';
 import './ChatRoom.css';
 
-function ChatRoom({ room, onClose }) {
+function ChatRoom({ room, messagesPromise, onClose }) {
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
     const [loading, setLoading] = useState(true);
@@ -28,7 +28,7 @@ function ChatRoom({ room, onClose }) {
                 unsubscribeFromRoom(room.id);
             };
         }
-    }, [room.id, connected]);
+    }, [room.id, connected, messagesPromise]); // messagesPromise가 변경되면 다시 로드
 
     useEffect(() => {
         scrollToBottom();
@@ -36,16 +36,26 @@ function ChatRoom({ room, onClose }) {
 
     const loadMessages = async () => {
         try {
-            const response = await chatAPI.getMessages(room.id);
+            setLoading(true);
+            let response;
 
-            // 읽음 처리 (response.data[0]이 가장 최신 메시지임 - DESC 정렬)
-            if (response.data.length > 0) {
-                const latestMessage = response.data[0];
-                await chatAPI.markAsRead(room.id, latestMessage.id);
+            // [최적화] Prefetch된 Promise가 있으면 사용, 없으면 직접 요청
+            if (messagesPromise) {
+                response = await messagesPromise;
+            } else {
+                response = await chatAPI.getMessages(room.id);
             }
 
             // UI 표시를 위해 역순(과거->현재)으로 정렬
             setMessages([...response.data].reverse());
+
+            // [최적화] 읽음 처리를 비동기로 수행하여 렌더링 차단 방지 (Non-blocking)
+            if (response.data.length > 0) {
+                const latestMessage = response.data[0];
+                chatAPI.markAsRead(room.id, latestMessage.id).catch(err => {
+                    console.error('Failed to mark as read (background):', err);
+                });
+            }
         } catch (error) {
             console.error('Failed to load messages:', error);
         } finally {

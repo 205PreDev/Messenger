@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import RoomList from '../components/RoomList';
 import FriendList from '../components/FriendList';
 import ChatRoom from '../components/ChatRoom';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocket } from '../context/WebSocketContext';
-import { getProfileUrl } from '../services/api';
+import { getProfileUrl, userAPI, chatAPI } from '../services/api'; // userAPI, chatAPI 추가
 import './Messenger.css';
 
 function Messenger() {
@@ -13,8 +13,14 @@ function Messenger() {
     const [theme, setTheme] = useState(
         localStorage.getItem('theme') || 'dark'
     );
+
+    // [최적화] 상태 끌어올리기 (Lifting State Up)
+    const [friends, setFriends] = useState([]);
+    const [rooms, setRooms] = useState([]);
+    const [loading, setLoading] = useState(true);
+
     const { user, logout } = useAuth();
-    const { connected, reconnecting } = useWebSocket();
+    const { connected, reconnecting, lastNotification } = useWebSocket();
 
     const toggleTheme = () => {
         const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -27,9 +33,76 @@ function Messenger() {
         document.documentElement.setAttribute('data-theme', theme);
     }, [theme]);
 
-    const handleStartChat = (room) => {
+    // [최적화] 초기 데이터 병렬 로딩 (Parallel Fetching)
+    useEffect(() => {
+        const loadInitialData = async () => {
+            try {
+                setLoading(true);
+                const [friendsRes, roomsRes] = await Promise.all([
+                    userAPI.getFriends(),
+                    chatAPI.getRooms()
+                ]);
+                setFriends(friendsRes.data);
+                setRooms(roomsRes.data);
+            } catch (error) {
+                console.error('Failed to load initial data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (user) {
+            loadInitialData();
+        }
+    }, [user]);
+
+    // [최적화] WebSocket 알림에 따른 데이터 갱신 (Centralized Update)
+    useEffect(() => {
+        if (lastNotification?.type === 'NEW_MESSAGE' || lastNotification?.type === 'READ_UPDATE') {
+            refreshRooms();
+        }
+    }, [lastNotification]);
+
+    const [messagesPromise, setMessagesPromise] = useState(null);
+
+    const refreshFriends = async () => {
+        try {
+            const response = await userAPI.getFriends();
+            setFriends(response.data);
+        } catch (error) {
+            console.error('Failed to refresh friends:', error);
+        }
+    };
+
+    const refreshRooms = async () => {
+        try {
+            const response = await chatAPI.getRooms();
+            setRooms(response.data);
+        } catch (error) {
+            console.error('Failed to refresh rooms:', error);
+        }
+    };
+
+    // [최적화] 채팅방 선택 시 Prefetching 수행
+    const handleSelectRoom = (room) => {
+        if (!room) {
+            setSelectedRoom(null);
+            setMessagesPromise(null);
+            return;
+        }
+
+        // 렌더링 전에 API 요청 시작 (Parallel Fetching)
+        const promise = chatAPI.getMessages(room.id);
+        setMessagesPromise(promise);
+
         setSelectedRoom(room);
         setView('rooms');
+    };
+
+    const handleStartChat = (room) => {
+        handleSelectRoom(room);
+        // 새 대화방이 생겼을 수 있으므로 목록 갱신
+        refreshRooms();
     };
 
     return (
@@ -75,17 +148,25 @@ function Messenger() {
                 </header>
 
                 <div className="sidebar-list-area">
-                    {view === 'rooms' ? (
+                    {/* [최적화] Display Toggling 방식으로 변경 (언마운트 방지) */}
+                    <div style={{ display: view === 'rooms' ? 'block' : 'none', height: '100%' }}>
                         <RoomList
+                            rooms={rooms}
+                            loading={loading}
                             selectedRoom={selectedRoom}
-                            onSelectRoom={setSelectedRoom}
+                            onSelectRoom={handleSelectRoom}
                             onAddNewChat={() => setView('friends')}
+                            onRoomsUpdate={setRooms} // Optimistic update용
+                            refreshRooms={refreshRooms} // 실패 시 복구용
                         />
-                    ) : (
+                    </div>
+                    <div style={{ display: view === 'friends' ? 'block' : 'none', height: '100%' }}>
                         <FriendList
+                            friends={friends}
+                            loading={loading}
                             onStartChat={handleStartChat}
                         />
-                    )}
+                    </div>
                 </div>
 
                 <footer className="user-panel">
@@ -113,7 +194,8 @@ function Messenger() {
                 {selectedRoom ? (
                     <ChatRoom
                         room={selectedRoom}
-                        onClose={() => setSelectedRoom(null)}
+                        messagesPromise={messagesPromise}
+                        onClose={() => handleSelectRoom(null)}
                     />
                 ) : (
                     <div className="no-chat-selected">

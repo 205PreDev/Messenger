@@ -1,34 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { chatAPI, getProfileUrl } from '../services/api';
-import { useWebSocket } from '../context/WebSocketContext';
+// useWebSocket 제거 (상위 컴포넌트에서 관리)
 import './RoomList.css';
 
-function RoomList({ selectedRoom, onSelectRoom, onAddNewChat }) {
-    const [rooms, setRooms] = useState([]);
-    const [loading, setLoading] = useState(true);
+// [최적화] Props로 데이터 및 핸들러 수신 (Stateless Component)
+function RoomList({ selectedRoom, onSelectRoom, onAddNewChat, rooms, loading, onRoomsUpdate, refreshRooms }) {
     const [searchQuery, setSearchQuery] = useState('');
-    const { lastNotification } = useWebSocket(); // WebSocket 컨텍스트 사용
 
-    useEffect(() => {
-        loadRooms();
-    }, []); // 초기 로딩
-
-    useEffect(() => {
-        if (lastNotification?.type === 'NEW_MESSAGE' || lastNotification?.type === 'READ_UPDATE') {
-            loadRooms();
-        }
-    }, [lastNotification]); // 알림이 오면 목록 갱신
-
-    const loadRooms = async () => {
-        try {
-            const response = await chatAPI.getRooms();
-            setRooms(response.data);
-        } catch (error) {
-            console.error('Failed to load rooms:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // 내부 loadRooms 로직 제거됨 (상위 컴포넌트로 위임)
 
     const filteredRooms = rooms.filter(room =>
         (room.title || '').toLowerCase().includes(searchQuery.toLowerCase())
@@ -63,19 +42,20 @@ function RoomList({ selectedRoom, onSelectRoom, onAddNewChat }) {
         e.stopPropagation();
         if (!window.confirm('채팅방을 나가시겠습니까? 대화 내용이 삭제됩니다.')) return;
 
-        // [Optimistic Update] 1. UI에서 먼저 지워서 즉각 반응 보여주기
-        setRooms(prev => prev.filter(r => r.id !== roomId));
+        // [Optimistic Update] 1. 상위 상태 업데이트
+        onRoomsUpdate(prev => prev.filter(r => r.id !== roomId));
+
         if (selectedRoom?.id === roomId) {
             onSelectRoom(null);
         }
 
         try {
-            // 2. 백엔드에 실제 요청 (사용자는 이미 지워진 걸 보고 있음)
+            // 2. 백엔드에 실제 요청
             await chatAPI.leaveRoom(roomId);
         } catch (error) {
             console.error('Failed to leave room:', error);
             alert('채팅방 나가기 실패');
-            loadRooms(); // 실패 시 목록 복구
+            refreshRooms(); // 실패 시 목록 복구
         }
     };
 
