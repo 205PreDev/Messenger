@@ -131,23 +131,42 @@
 
 .typing-indicator-wrapper {
     flex-shrink: 0;
-    padding: 0 16px 8px;
-    background: var(--bg-primary);
+    padding: 2px 16px;
+    /* 두께 축소 */
+    background: transparent;
+    /* 배경 투명하게 하여 가볍게 표시 */
     z-index: 5;
+    animation: typingSlideIn 0.2s ease-out;
 }
 
 .typing-indicator-container {
-    padding: 8px 16px;
+    padding: 4px 8px;
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 12px;
-    /* 폰트 사이즈 키움 */
+    font-size: 11px;
+    /* 폰트 약간 축소 */
     color: var(--text-secondary);
-    min-height: 24px;
-    /* 높이 확보 */
-    margin-bottom: 4px;
-    /* 입력창과의 간격 */
+    background: rgba(0, 0, 0, 0.03);
+    /* 아주 연한 배경 (디스코드 느낌) */
+    border-radius: var(--radius-sm);
+    width: fit-content;
+}
+
+[data-theme="dark"] .typing-indicator-container {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+@keyframes typingSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .typing-dots {

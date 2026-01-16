@@ -113,6 +113,12 @@ function Messenger() {
         refreshRooms();
     };
 
+    const handleLogout = () => {
+        if (window.confirm('정말 로그아웃 하시겠습니까?')) {
+            logout();
+        }
+    };
+
     return (
         <div className="messenger-container" data-theme={theme}>
             {/* 1. Leftmost Navigation Sidebar (Icons + Theme) */}
@@ -191,7 +197,7 @@ function Messenger() {
                             <span className="user-status-label">Online</span>
                         </div>
                     </div>
-                    <button className="logout-btn-small" onClick={logout} title="로그아웃">
+                    <button className="logout-btn-small" onClick={handleLogout} title="로그아웃">
                         ✕
                     </button>
                 </footer>

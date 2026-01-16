@@ -21,12 +21,12 @@ function App() {
     return (
         <AuthProvider>
             <WebSocketProvider>
-                <div className="app-main-wrapper" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-                    <TitleBar />
-                    <Router>
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <Router>
+                    <div className="app-main-wrapper" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg-primary)' }}>
+                        <TitleBar />
+                        <div className="app-content-outer" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, position: 'relative', zIndex: 1, pointerEvents: 'auto' }}>
                             <Routes>
-                                <Route path="/login" element={<Login />} />
+                                <Route path="/login" element={<div style={{ height: '100%', width: '100%', pointerEvents: 'auto' }}><Login /></div>} />
                                 <Route
                                     path="/"
                                     element={
@@ -35,10 +35,11 @@ function App() {
                                         </PrivateRoute>
                                     }
                                 />
+                                <Route path="*" element={<Navigate to="/" replace />} />
                             </Routes>
                         </div>
-                    </Router>
-                </div>
+                    </div>
+                </Router>
             </WebSocketProvider>
         </AuthProvider>
     );

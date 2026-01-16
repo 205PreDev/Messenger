@@ -67,6 +67,86 @@ function ChatRoom({ room, messagesPromise, onClose }) {
         }
     }, [messages]);
 
+    // [Helper] 메시지 데이터 정규화 (프로필 URL 등)
+    const normalizeMessage = (msg) => {
+        const rawData = msg.type === 'MESSAGE' ? msg.data : msg;
+        const senderIdStr = rawData.senderId ? rawData.senderId.toString() : (rawData.userId ? rawData.userId.toString() : null);
+
+        // 닉네임 우선순위:
+        // 1. 데이터 자체의 nickname / senderNickname
+        // 2. 방 참여자 목록(room.users)에서 닉네임 검색
+        // 3. (DM인 경우) 상대방이면 room.title (보통 닉네임으로 설정됨)
+        // 4. 본인인 경우 AuthContext의 정보
+        // 5. 최종 폴백 (senderName/username)
+
+        let displayName = rawData.nickname || rawData.senderNickname;
+
+        // 방 참여자 정보에서 검색
+        if (!displayName && room.users && Array.isArray(room.users)) {
+            const foundUser = room.users.find(u => String(u.id) === senderIdStr);
+            if (foundUser) {
+                // nickname 필드가 있다면 최우선, 아니면 username/name
+                displayName = foundUser.nickname || foundUser.username || foundUser.name;
+            }
+        }
+
+        // DM 방이고 상대방인 경우, 방 제목(room.title)은 보통 상대방의 닉네임입니다.
+        if (!displayName && room.type === 'DM' && senderIdStr !== String(user?.id)) {
+            displayName = room.title;
+        }
+
+        // 본인인 경우
+        if (!displayName && senderIdStr === String(user?.id)) {
+            displayName = user?.nickname || user?.username;
+        }
+
+        // 최종 폴백
+        if (!displayName) {
+            displayName = rawData.senderName || rawData.username || '알 수 없음';
+        }
+
+        // 프로필 사진 우선순위:
+        // 1. 방 참여자 목록(room.users)에서 해당 유저의 프로필 경로 검색
+        // 2. (DM인 경우) 상대방이면 room.selectedProfile의 경로 (방 목록 프로필 사진과 동일)
+        // 3. 데이터 자체의 profileImage / selectedProfile 등
+        // 4. 본인인 경우 AuthContext의 정보
+
+        let profilePath = null;
+
+        // 방 참여자 정보에서 검색
+        if (room.users && Array.isArray(room.users)) {
+            const foundUser = room.users.find(u => String(u.id) === senderIdStr);
+            if (foundUser) {
+                profilePath = foundUser.profileImagePath || foundUser.selectedProfile?.imagePath || foundUser.selectedProfile || foundUser.profileImage;
+            }
+        }
+
+        // DM 방이고 상대방인 경우, 방 전체 정보에 있는 프로필을 활용 (가장 정확)
+        if (!profilePath && room.type === 'DM' && senderIdStr !== String(user?.id)) {
+            profilePath = room.profileImagePath || room.selectedProfile?.imagePath || room.selectedProfile;
+        }
+
+        // 본인인 경우
+        if (!profilePath && senderIdStr === String(user?.id)) {
+            profilePath = user?.selectedProfile?.imagePath || user?.selectedProfile || user?.profileImage;
+        }
+
+        // 최종 폴백 (메시지 데이터 자체)
+        if (!profilePath) {
+            profilePath = rawData.profileImageUrl || rawData.selectedProfile?.imagePath || rawData.selectedProfile || rawData.profileImage;
+        }
+
+        return {
+            ...rawData,
+            id: rawData.id,
+            content: rawData.content || rawData.message,
+            senderName: displayName,
+            createdAt: rawData.createdAt || rawData.timestamp,
+            senderId: senderIdStr,
+            profileImageUrl: getProfileUrl(profilePath)
+        };
+    };
+
     const loadMessages = async () => {
         try {
             setLoading(true);
@@ -84,8 +164,9 @@ function ChatRoom({ room, messagesPromise, onClose }) {
                 setHasMore(false);
             }
 
-            // UI 표시를 위해 역순(과거->현재)으로 정렬
-            setMessages([...response.data].reverse());
+            // 데이터 정규화 및 역순 정렬
+            const normalizedData = response.data.map(normalizeMessage);
+            setMessages([...normalizedData].reverse());
 
             // [최적화] 읽음 처리를 비동기로 수행하여 렌더링 차단 방지 (Non-blocking)
             if (response.data.length > 0) {
@@ -126,7 +207,8 @@ function ChatRoom({ room, messagesPromise, onClose }) {
             }
 
             // 기존 메시지 앞에 추가
-            const previousMessages = [...response.data].reverse();
+            const normalizedData = response.data.map(normalizeMessage);
+            const previousMessages = [...normalizedData].reverse();
             setMessages(prev => [...previousMessages, ...prev]);
 
             // 주의: setIsLoadingMore(false)는 useEffect에서 처리됨 (스크롤 복원 후)
@@ -145,7 +227,7 @@ function ChatRoom({ room, messagesPromise, onClose }) {
     const handleNewMessage = (message) => {
         console.log('[ChatRoom] WebSocket 수신 원본:', message);
 
-        // 타이핑 인디케이터 처리 (메시지 타입이 TYPING이거나 데이터에 isTyping 필드가 있는 경우)
+        // 타이핑 인디케이터 처리
         if (message.type === 'TYPING' || (message.data && message.data.isTyping !== undefined) || message.isTyping !== undefined) {
             const typingData = message.type === 'TYPING' ? message.data : (message.data || message);
             handleTypingIndicator(typingData);
@@ -154,21 +236,7 @@ function ChatRoom({ room, messagesPromise, onClose }) {
 
         // 일반 메시지 처리
         if (!message.type || message.type === 'MESSAGE') {
-            const rawData = message.type === 'MESSAGE' ? message.data : message;
-
-            // 데이터 필드 보정 (서버마다 content/message, senderName/username 등 다를 수 있음)
-            // 프로필 경로 추출 및 절대 URL 변환
-            const profilePath = rawData.selectedProfile?.imagePath || rawData.selectedProfile || rawData.profileImage;
-
-            const normalizedMessage = {
-                ...rawData,
-                id: rawData.id,
-                content: rawData.content || rawData.message,
-                senderName: rawData.senderName || rawData.username,
-                createdAt: rawData.createdAt || rawData.timestamp,
-                senderId: rawData.senderId ? rawData.senderId.toString() : (rawData.userId ? rawData.userId.toString() : null),
-                profileImageUrl: getProfileUrl(profilePath)
-            };
+            const normalizedMessage = normalizeMessage(message);
 
             if (normalizedMessage.id || normalizedMessage.content) {
                 console.log('[ChatRoom] 보정된 메시지 데이터:', normalizedMessage);
@@ -192,16 +260,16 @@ function ChatRoom({ room, messagesPromise, onClose }) {
 
         if (typingUserId === currentUserId) return;
 
-        // 이름 찾기 시도: 1. WebSocket 데이터 2. 방 참여자 목록 3. fallback
-        let typingUsername = data.username || data.senderName;
+        // 이름 찾기 시도: 1. WebSocket 데이터 닉네임 2. 계정명 3. 방 참여자 목록 4. fallback
+        let typingUsername = data.nickname || data.senderNickname || data.username || data.senderName;
 
         if (!typingUsername && room.users && Array.isArray(room.users)) {
             const foundUser = room.users.find(u => String(u.id) === typingUserId);
-            if (foundUser) typingUsername = foundUser.username || foundUser.name;
+            if (foundUser) typingUsername = foundUser.nickname || foundUser.username || foundUser.name;
         }
 
         if (!typingUsername) {
-            // [수정] DM의 경우 방 제목이 곧 상대방 닉네임일 가능성이 높음
+            // [수정] DM의 경우 방 제목이 곧 상대방 닉네임일 가능성이 높음 (최종 수단)
             if (room.type === 'DM' && room.title) {
                 typingUsername = room.title;
             } else {
@@ -308,7 +376,7 @@ function ChatRoom({ room, messagesPromise, onClose }) {
                 </button>
             </div>
 
-            <div className="messages-container">
+            <div className="messages-container" ref={chatAreaRef} onScroll={handleScroll}>
                 {loading ? (
                     <div className="loading-messages">
                         <div className="spinner"></div>
@@ -338,9 +406,11 @@ function ChatRoom({ room, messagesPromise, onClose }) {
                         <div ref={messagesEndRef} />
                     </>
                 )}
+            </div>
 
-                {/* Typing Indicator */}
-                {typingUsers.length > 0 && (
+            {/* Typing Indicator - Moved outside messages-container to stay above input */}
+            {typingUsers.length > 0 && (
+                <div className="typing-indicator-wrapper">
                     <div className="typing-indicator-container">
                         <div className="typing-dots">
                             <span></span><span></span><span></span>
@@ -351,8 +421,8 @@ function ChatRoom({ room, messagesPromise, onClose }) {
                                 : `${typingUsers.map(u => u.name || u).join(', ')}님이 입력 중...`}
                         </span>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
 
             {/* Input Area */}
             <form className="message-input-form" onSubmit={handleSendMessage}>
