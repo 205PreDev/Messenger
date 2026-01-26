@@ -1,22 +1,21 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Electron API를 렌더러 프로세스에 안전하게 노출
+// Renderer 프로세스에서 안전하게 사용할 수 있는 API 노출
 contextBridge.exposeInMainWorld('electronAPI', {
-    // 알림
-    showNotification: (title, body) => ipcRenderer.invoke('show-notification', title, body),
-
-    // 윈도우 제어
-    minimizeWindow: () => ipcRenderer.send('minimize-window'),
-    maximizeWindow: () => ipcRenderer.send('maximize-window'),
-    closeWindow: () => ipcRenderer.send('close-window'),
-
-    // 시스템 트레이
-    setTrayUnreadCount: (count) => ipcRenderer.send('set-tray-count', count),
-
-    // 저장소
-    store: {
-        get: (key) => ipcRenderer.invoke('store-get', key),
-        set: (key, value) => ipcRenderer.invoke('store-set', key, value),
-        delete: (key) => ipcRenderer.invoke('store-delete', key),
+    // 데스크톱 알림 표시
+    showNotification: (title, body) => {
+        ipcRenderer.send('show-notification', { title, body });
     },
+
+    // 읽지 않은 메시지 뱃지 업데이트
+    updateBadge: (count) => {
+        ipcRenderer.send('update-badge', count);
+    },
+
+    // 창 제어
+    windowControl: {
+        minimize: () => ipcRenderer.send('window-minimize'),
+        maximize: () => ipcRenderer.send('window-maximize'),
+        close: () => ipcRenderer.send('window-close')
+    }
 });

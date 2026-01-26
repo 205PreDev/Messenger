@@ -1,64 +1,75 @@
 {
-  "name": "3d-community-messenger",
+  "name": "3dcommu-messenger",
   "version": "1.0.0",
-  "description": "3D Community 데스크톱 메신저",
+  "description": "Electron-based messenger app for 3DCommu platform",
   "main": "electron/main.js",
-  "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
-    "dev:vite": "vite",
-    "dev:electron": "wait-on http://localhost:5173 && electron .",
-    "build": "vite build",
-    "build:electron": "npm run build && electron-builder",
-    "preview": "vite preview"
+    "start": "webpack serve --mode development",
+    "build": "webpack --mode production",
+    "electron:dev": "concurrently \"npm start\" \"wait-on http://localhost:3001 && electron .\"",
+    "electron:dev:second": "electron . --user-data-dir=\"./.test-runtime\"",
+    "electron:build": "npm run build && electron-builder",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "electron",
     "messenger",
-    "3d-community"
+    "chat",
+    "websocket"
   ],
   "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-router-dom": "^6.20.0",
-    "axios": "^1.13.2",
-    "@stomp/stompjs": "^7.2.1",
-    "sockjs-client": "^1.6.1",
-    "jwt-decode": "^4.0.0",
-    "@heroicons/react": "^2.2.0",
-    "date-fns": "^3.0.0",
-    "electron-store": "^8.1.0"
-  },
+  "license": "ISC",
   "devDependencies": {
-    "electron": "^28.0.0",
-    "vite": "^5.0.0",
-    "@vitejs/plugin-react": "^4.2.0",
-    "electron-builder": "^24.9.0",
+    "@babel/core": "^7.23.0",
+    "@babel/preset-env": "^7.23.0",
+    "@babel/preset-react": "^7.22.0",
+    "babel-loader": "^9.1.3",
+    "buffer": "^6.0.3",
     "concurrently": "^8.2.0",
-    "wait-on": "^7.2.0"
+    "crypto-browserify": "^3.12.1",
+    "css-loader": "^6.8.1",
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4",
+    "events": "^3.3.0",
+    "global": "^4.4.0",
+    "html-webpack-plugin": "^5.5.3",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "style-loader": "^3.3.3",
+    "wait-on": "^7.0.1",
+    "webpack": "^5.88.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1"
+  },
+  "dependencies": {
+    "@stomp/stompjs": "^7.0.0",
+    "axios": "^1.5.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.16.0",
+    "sockjs-client": "^1.6.1"
   },
   "build": {
-    "appId": "com.3dcommunity.messenger",
-    "productName": "3D Community 메신저",
+    "appId": "com.3dcommu.messenger",
+    "productName": "3DCommu Messenger",
     "directories": {
-      "output": "release"
+      "output": "dist"
     },
     "files": [
-      "dist/**/*",
       "electron/**/*",
-      "package.json"
+      "build/**/*"
     ],
     "win": {
-      "target": [
-        "nsis"
-      ],
-      "icon": "public/icon.png"
+      "target": "nsis",
+      "icon": "assets/icon.ico"
     },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
     }
   }
 }
